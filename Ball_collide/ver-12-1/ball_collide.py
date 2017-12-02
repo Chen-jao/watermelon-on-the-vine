@@ -9,7 +9,7 @@ function 说明：基本完成
 2.移动控制
 3.碰撞检测及处理
 4.音效控制
-5.ball速度控制
+5.ball速度控制  未完成
 6.屏幕大小控制
 7.....
 
@@ -114,7 +114,7 @@ while True:
     if ballCollide(ball_group):
         hit_sound.play_sound()  # 播放碰撞音效
 
-    #bg_sound.play_sound()   # 播放背景音乐
+    bg_sound.play_sound()   # 播放背景音乐
 
     pygame.display.update() # 更新屏幕
 
