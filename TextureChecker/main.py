@@ -13,6 +13,9 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         # 关键字段声明
         self.__printModel = "ONLY"
+        self.__filterModel = "JPGE"
+        self.__totalNumber = 0
+        self.__errNumber = 0
         # 初始化标签，窗体设置
         self.FormInit()
         pass
@@ -36,29 +39,53 @@ class MainWindow(QMainWindow):
 
     # label设置
     def LabelInit(self):
-        lbModePrint = QLabel("输出模式:", self)
-        lbModePrint.resize(60, 20)
-        lbModePrint.move(10, 70)
         lbDirSelect = QLabel("文件目录:", self)
         lbDirSelect.resize(60, 20)
         lbDirSelect.move(10, 35)
+        lbModePrint = QLabel("输出模式:", self)
+        lbModePrint.resize(60, 20)
+        lbModePrint.move(10, 70)
+        lbModeFilter = QLabel("过滤模式:", self)
+        lbModeFilter.resize(60, 20)
+        lbModeFilter.move(10, 105)
+        lbResultTotalCheck = QLabel("校验总数:", self)
+        lbResultTotalCheck.resize(60, 20)
+        lbResultTotalCheck.move(10, 520)
+        lbResultErrorCheck = QLabel("错误总数:", self)
+        lbResultErrorCheck.resize(60, 20)
+        lbResultErrorCheck.move(10, 550)
         pass
 
     def ComboxInit(self):
         # 模式选择下拉列表
-        msCom = QComboBox(self)
-        msCom.move(70, 70)
-        msCom.resize(60, 20)
-        msCom.addItem("ONLY")
-        msCom.addItem("WHOLE")
-        msCom.activated[str].connect(self.OnTriAct_SwitchPrintMode)
+        osCom = QComboBox(self)
+        osCom.move(70, 70)
+        osCom.resize(60, 20)
+        osCom.addItem("ONLY")
+        osCom.addItem("WHOLE")
+        osCom.activated[str].connect(self.OnTriAct_SwitchPrintMode)
+
+        ftCom = QComboBox(self)
+        ftCom.move(70, 105)
+        ftCom.resize(60, 20)
+        ftCom.addItem("WHOLE")
+        ftCom.addItem("JPGE")
+        ftCom.addItem("PNG")
+        ftCom.activated[str].connect(self.OnTriAct_SwitchFilterMode)
         pass
 
     def TextBoxInit(self):
-        self.__textBox = QLineEdit(self)
-        self.__textBox.move(70, 35)
-        self.__textBox.resize(400, 20)
-        self.__textBox.setText("")
+        self.__textBoxDir = QLineEdit(self)
+        self.__textBoxDir.move(70, 35)
+        self.__textBoxDir.resize(400, 20)
+
+        self.__textBoxTotal = QLineEdit(self)
+        self.__textBoxTotal.resize(50, 20)
+        self.__textBoxTotal.move(70, 520)
+
+        self.__textBoxErr = QLineEdit(self)
+        self.__textBoxErr.resize(50, 20)
+        self.__textBoxErr.move(70, 550)
         pass
 
     def TableViewInit(self):
@@ -114,7 +141,7 @@ class MainWindow(QMainWindow):
     # 文件夹选择
     def FolderSelect(self):
         fileDirs = QFileDialog.getExistingDirectory(self, "文件夹选取", "C:/")
-        self.__textBox.setText(fileDirs) # 设置选择路径
+        self.__textBoxDir.setText(fileDirs) # 设置选择路径
         self.TableViewClear()
         # 计数器，针对多级子目录文件
         counter = 0 
@@ -124,12 +151,14 @@ class MainWindow(QMainWindow):
                 # 列数显示对应的结果
                 root.replace('\\', '/')  # 字符替换，os遍历路径会出现反斜杠，要做替换
                 counter = self.ResultPrint(root, files[raw], counter)
+        self.ResultInfoSet()
         pass
 
     # 单文件选择
     def FileSelect(self):
         filePath, ok = QFileDialog.getOpenFileName(self,"单文件选取","C:/","Images(*.jpg *.png)")
         if ok:
+            self.__totalNumber += 1
             self.TableViewClear()
             strArray = filePath.strip('/').split('/')
             root = "" 
@@ -139,8 +168,9 @@ class MainWindow(QMainWindow):
                 elif i < len(strArray) - 1:
                     root += strArray[i]
 
-            self.__textBox.setText(root) # 设置选择路径
+            self.__textBoxDir.setText(root) # 设置选择路径
             self.ResultPrint(root, strArray[len(strArray) - 1], 0)
+            self.ResultInfoSet()
         pass
     
     # 多文件选择
@@ -156,6 +186,12 @@ class MainWindow(QMainWindow):
         strArray = name.split('.')
         if(strArray[1] != "jpg" and strArray[1] != 'png'):
             return counter
+        # 模式过滤
+        if(self.__filterModel == "JPGE" and strArray[1] != "jpg"):
+            return counter
+        if(self.__filterModel == "PNG" and strArray[1] != "png"):
+            return counter
+        self.__totalNumber += 1
         # 继续执行 img open
         img = Image.open(dir + "/" + name)
         # 首先检测宽高比例
@@ -163,6 +199,9 @@ class MainWindow(QMainWindow):
         # 检测是否2次幂
         if right:
             right = True if ((img.size[0] & (img.size[0] - 1)) == 0) else False
+            self.__errNumber = self.__errNumber if right else self.__errNumber + 1
+        else:
+            self.__errNumber += 1 
         # 根据选择模式输出，若是判断结果正确，则不需要输出全部，也就是只输出格式不正确的
         if(self.__printModel == "ONLY" and right):
             return counter
@@ -183,7 +222,15 @@ class MainWindow(QMainWindow):
             self.__model.setItem(counter, col, it)
 
         return counter + 1
+        pass
 
+    # 数目信息统计输出
+    def ResultInfoSet(self):
+        self.__textBoxTotal.setText(str(self.__totalNumber))
+        self.__textBoxErr.setText(str(self.__errNumber))
+        self.__totalNumber = 0
+        self.__errNumber = 0
+        pass
 
     '''
     下面是与触发器相关的东西
@@ -191,6 +238,10 @@ class MainWindow(QMainWindow):
     # 输出模式信号切换
     def OnTriAct_SwitchPrintMode(self, text):
         self.__printModel = str(text)
+        pass
+
+    def OnTriAct_SwitchFilterMode(self, text):
+        self.__filterModel = str(text)
         pass
 
 
@@ -207,11 +258,6 @@ if __name__ == "__main__":
     更新说明：
         1. 单文件选取，文件夹选取
         2. 文件格式检测
-    待完善：
-        1. 结构
-        2. 文件格式检测方式
-        3. 多文件选取
+        3. 格式过滤PNG JPGE
         4. 输出信息同统计说明
-    存疑：
-        1. 单文件模式输出，为TRUE结果显示与否
     '''
